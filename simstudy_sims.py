@@ -6,7 +6,7 @@ import sims4.commands
 
 # Import game services lazily so optional game APIs cannot prevent command registration.
 
-ROOT = os.path.expanduser("~/Documents/SimStudyBridge")
+ROOT = os.path.join(os.path.expanduser("~"), "Documents", "SimStudyBridge")
 REWARDS = os.path.join(ROOT, "rewards.json")
 BINDING = os.path.join(ROOT, "sims_binding.json")
 LOG = os.path.join(ROOT, "sims4_bridge.log")
@@ -49,6 +49,7 @@ def rewards():
 
 def sync(connection=None, quiet=False):
     try:
+        import services
         import services
         household = services.active_household()
         if household is None or not os.path.isfile(BINDING):
