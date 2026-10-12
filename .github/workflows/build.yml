@@ -17,4 +17,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: SimStudy-ScholarHouse-Compiled
-          path: SimStudy_ScholarHouse_Auto.ts4script
+          path: |
+            SimStudy_ScholarHouse_Auto.ts4script
+            SimStudy_Diagnostic.ts4script
