@@ -16,6 +16,10 @@ with tempfile.TemporaryDirectory() as folder:
     py_compile.compile("simstudy_diagnostic.py", cfile=diagnostic, doraise=True)
     with zipfile.ZipFile("SimStudy_Diagnostic.ts4script", "w") as archive:
         archive.write(diagnostic, arcname="simstudy_diagnostic.pyc")
+    stage1 = os.path.join(folder, "simstudy_bridge_stage1.pyc")
+    py_compile.compile("simstudy_bridge_stage1.py", cfile=stage1, doraise=True)
+    with zipfile.ZipFile("SimStudy_Bridge_Stage1.ts4script", "w") as archive:
+        archive.write(stage1, arcname="simstudy_bridge_stage1.pyc")
     with zipfile.ZipFile("SimStudy_ScholarHouse_Auto.ts4script") as archive:
         assert archive.read("simstudy_sims.pyc")[:4] == importlib.util.MAGIC_NUMBER
 print("Compiled experimental Sims 4 package")
