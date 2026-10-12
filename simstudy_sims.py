@@ -117,6 +117,7 @@ def show_path(_connection=None):
 @sims4.commands.Command("simstudy.bind", command_type=sims4.commands.CommandType.Live)
 def bind(_connection=None):
     try:
+        import services
         household = services.active_household()
         d = rewards()
         if household is None or household.name.strip().lower() != d["household_name"].strip().lower():
@@ -131,14 +132,15 @@ def bind(_connection=None):
             return
         write(BINDING, {"sims_household_id": str(household.id), "anki_household_id": d["household_id"], "last_synced_earned": d["simoleons_earned"]})
         say(_connection, "Household bound. Future earnings can sync.")
-    except Exception:
+    except Exception as exc:
         log(traceback.format_exc())
-        say(_connection, "Binding failed")
+        say(_connection, "Binding failed: {}".format(type(exc).__name__))
 
 @sims4.commands.Command("simstudy.start", command_type=sims4.commands.CommandType.Live)
 def start(_connection=None):
     global ALARM
     try:
+        import services
         household = services.active_household()
         binding = read(BINDING)
         if household is None or str(household.id) != binding.get("sims_household_id"):
