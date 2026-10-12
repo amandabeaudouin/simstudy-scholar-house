@@ -92,12 +92,27 @@ def ping(_connection=None):
 
 @sims4.commands.Command("simstudy.status", command_type=sims4.commands.CommandType.Live)
 def status(_connection=None):
+    # Confirm command invocation before any file I/O.
+    say(_connection, "SimStudy status running; checking rewards...")
     try:
         d = rewards()
         say(_connection, "Cards {} | Earned {} | Auto {}".format(d.get("total_cards"), d["simoleons_earned"], ALARM is not None))
-    except Exception:
+    except Exception as exc:
+        say(_connection, "Rewards read error: {}".format(type(exc).__name__))
         log(traceback.format_exc())
-        say(_connection, "Reward data unavailable")
+
+@sims4.commands.Command("simstudy.path", command_type=sims4.commands.CommandType.Live)
+def show_path(_connection=None):
+    say(_connection, "SimStudy path test started")
+    try:
+        candidates = [
+            os.path.join(os.path.expanduser("~"), "Documents", "SimStudyBridge", "rewards.json"),
+            os.path.join(os.path.expanduser("~"), "Library", "Mobile Documents", "com~apple~CloudDocs", "Documents", "SimStudyBridge", "rewards.json"),
+        ]
+        for idx, candidate in enumerate(candidates):
+            say(_connection, "Location {}: {}".format(idx + 1, "found" if os.path.isfile(candidate) else "not found"))
+    except Exception as exc:
+        say(_connection, "Path check error: {}".format(type(exc).__name__))
 
 @sims4.commands.Command("simstudy.bind", command_type=sims4.commands.CommandType.Live)
 def bind(_connection=None):
