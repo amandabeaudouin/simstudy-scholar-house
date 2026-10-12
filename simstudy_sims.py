@@ -2,10 +2,9 @@
 import os
 import json
 import traceback
-import services
-import alarms
-import clock
 import sims4.commands
+
+# Import game services lazily so optional game APIs cannot prevent command registration.
 
 ROOT = os.path.expanduser("~/Documents/SimStudyBridge")
 REWARDS = os.path.join(ROOT, "rewards.json")
@@ -50,6 +49,7 @@ def rewards():
 
 def sync(connection=None, quiet=False):
     try:
+        import services
         household = services.active_household()
         if household is None or not os.path.isfile(BINDING):
             return
@@ -129,7 +129,9 @@ def start(_connection=None):
             say(_connection, "BLOCKED: open bound study household")
             return
         if ALARM is None:
-            ALARM = alarms.add_alarm(ping, clock.interval_in_sim_minutes(1), tick, repeating=True)
+            import alarms
+            import clock
+            ALARM = alarms.add_alarm(household, clock.interval_in_sim_minutes(1), tick, repeating=True)
         say(_connection, "SimStudy checking earnings every in-game minute")
         sync(_connection)
     except Exception:
@@ -140,6 +142,7 @@ def start(_connection=None):
 def stop(_connection=None):
     global ALARM
     if ALARM is not None:
+        import alarms
         alarms.cancel_alarm(ALARM)
         ALARM = None
     say(_connection, "SimStudy auto sync stopped")
