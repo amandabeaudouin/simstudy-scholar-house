@@ -50,7 +50,6 @@ def rewards():
 def sync(connection=None, quiet=False):
     try:
         import services
-        import services
         household = services.active_household()
         if household is None or not os.path.isfile(BINDING):
             return
@@ -88,7 +87,7 @@ def tick(handle):
 
 @sims4.commands.Command("simstudy.ping", command_type=sims4.commands.CommandType.Live)
 def ping(_connection=None):
-    say(_connection, "SimStudy experimental bridge loaded")
+    say(_connection, "SimStudy binding repair loaded")
 
 @sims4.commands.Command("simstudy.status", command_type=sims4.commands.CommandType.Live)
 def status(_connection=None):
@@ -114,8 +113,27 @@ def show_path(_connection=None):
     except Exception as exc:
         say(_connection, "Path check error: {}".format(type(exc).__name__))
 
+@sims4.commands.Command("simstudy.bindcheck", command_type=sims4.commands.CommandType.Live)
+def bindcheck(_connection=None):
+    say(_connection, "SimStudy household check running")
+    try:
+        import services
+        household = services.active_household()
+        if household is None:
+            say(_connection, "No active household. Open a household in Live Mode.")
+            return
+        d = rewards()
+        live_name = str(household.name).strip()
+        study_name = str(d["household_name"]).strip()
+        say(_connection, "Sims household: {}".format(live_name))
+        say(_connection, "Anki household: {}".format(study_name))
+        say(_connection, "Names match: {}".format(live_name.lower() == study_name.lower()))
+    except Exception as exc:
+        say(_connection, "Check error: {}".format(type(exc).__name__))
+
 @sims4.commands.Command("simstudy.bind", command_type=sims4.commands.CommandType.Live)
 def bind(_connection=None):
+    say(_connection, "SimStudy binding started")
     try:
         import services
         household = services.active_household()
@@ -133,8 +151,8 @@ def bind(_connection=None):
         write(BINDING, {"sims_household_id": str(household.id), "anki_household_id": d["household_id"], "last_synced_earned": d["simoleons_earned"]})
         say(_connection, "Household bound. Future earnings can sync.")
     except Exception as exc:
+        say(_connection, "Binding error: {}".format(type(exc).__name__))
         log(traceback.format_exc())
-        say(_connection, "Binding failed: {}".format(type(exc).__name__))
 
 @sims4.commands.Command("simstudy.start", command_type=sims4.commands.CommandType.Live)
 def start(_connection=None):
