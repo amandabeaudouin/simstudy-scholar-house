@@ -11,6 +11,9 @@ REWARDS = os.path.join(ROOT, "rewards.json")
 BINDING = os.path.join(ROOT, "sims_binding.json")
 LOG = os.path.join(ROOT, "sims4_bridge.log")
 ALARM = None
+AUTO_CONNECTION = None
+AUTO_TICKS = 0
+AUTO_LAST_RESULT = "not started"
 
 def log(message):
     try:
@@ -48,22 +51,29 @@ def rewards():
     return d
 
 def sync(connection=None, quiet=False):
+    global AUTO_LAST_RESULT
+    AUTO_LAST_RESULT = "checking"
     try:
         import services
         household = services.active_household()
         if household is None or not os.path.isfile(BINDING):
+            AUTO_LAST_RESULT = "household or binding missing"
             return
         binding = read(BINDING)
         d = rewards()
         if str(household.id) != binding.get("sims_household_id") or d["household_id"] != binding.get("anki_household_id"):
+            AUTO_LAST_RESULT = "household ID mismatch"
             return
         prior = binding.get("last_synced_earned")
         if type(prior) is not int or prior < 0:
+            AUTO_LAST_RESULT = "invalid sync baseline"
             return
         delta = d["simoleons_earned"] - prior
         if delta <= 0:
+            AUTO_LAST_RESULT = "no new earnings"
             return
         if delta > 100000:
+            AUTO_LAST_RESULT = "reward safety limit"
             log("Blocked unusually large reward delta")
             return
         before = int(household.funds.money)
@@ -71,19 +81,27 @@ def sync(connection=None, quiet=False):
         sims4.commands.execute("sims.modify_funds {}".format(delta), connection)
         after = int(household.funds.money)
         if after - before != delta:
+            AUTO_LAST_RESULT = "funds change unverified"
             log("Funds change not verified: {} to {} expected {}".format(before, after, delta))
             return
         binding["last_synced_earned"] = d["simoleons_earned"]
         write(BINDING, binding)
+        AUTO_LAST_RESULT = "awarded {}".format(delta)
         if not quiet and connection is not None:
             say(connection, "SimStudy awarded {} Simoleons".format(delta))
-    except Exception:
+    except Exception as exc:
+        AUTO_LAST_RESULT = "sync error: {}".format(type(exc).__name__)
         log(traceback.format_exc())
         if connection is not None and not quiet:
-            say(connection, "SimStudy sync failed. Inspect sims4_bridge.log")
+            say(connection, "SimStudy sync failed: {}".format(type(exc).__name__))
 
 def tick(handle):
-    sync(quiet=True)
+    global AUTO_TICKS
+    AUTO_TICKS += 1
+    # A timer callback has no cheat-console connection of its own.
+    # Reuse the connection captured by simstudy.start, otherwise the funds
+    # command executes as session 0 and may silently fail.
+    sync(connection=AUTO_CONNECTION, quiet=True)
 
 @sims4.commands.Command("simstudy.ping", command_type=sims4.commands.CommandType.Live)
 def ping(_connection=None):
@@ -95,7 +113,7 @@ def status(_connection=None):
     say(_connection, "SimStudy status running; checking rewards...")
     try:
         d = rewards()
-        say(_connection, "Cards {} | Earned {} | Auto {}".format(d.get("total_cards"), d["simoleons_earned"], ALARM is not None))
+        say(_connection, "Cards {} | Earned {} | Auto {} | Ticks {}".format(d.get("total_cards"), d["simoleons_earned"], ALARM is not None, AUTO_TICKS))
     except Exception as exc:
         say(_connection, "Rewards read error: {}".format(type(exc).__name__))
         log(traceback.format_exc())
@@ -156,7 +174,7 @@ def bind(_connection=None):
 
 @sims4.commands.Command("simstudy.start", command_type=sims4.commands.CommandType.Live)
 def start(_connection=None):
-    global ALARM
+    global ALARM, AUTO_CONNECTION
     try:
         import services
         household = services.active_household()
@@ -164,11 +182,13 @@ def start(_connection=None):
         if household is None or str(household.id) != binding.get("sims_household_id"):
             say(_connection, "BLOCKED: open bound study household")
             return
+        AUTO_CONNECTION = _connection
         if ALARM is None:
             import alarms
             import clock
-            ALARM = alarms.add_alarm(household, clock.interval_in_sim_minutes(1), tick, repeating=True)
-        say(_connection, "SimStudy checking earnings every in-game minute")
+            interval = clock.interval_in_sim_minutes(1)
+            ALARM = alarms.add_alarm(household, interval, tick, repeating=True, repeating_time_span=interval)
+        say(_connection, "SimStudy checking earnings every in-game minute (auto fix)")
         sync(_connection)
     except Exception:
         log(traceback.format_exc())
@@ -176,12 +196,17 @@ def start(_connection=None):
 
 @sims4.commands.Command("simstudy.stop", command_type=sims4.commands.CommandType.Live)
 def stop(_connection=None):
-    global ALARM
+    global ALARM, AUTO_CONNECTION
     if ALARM is not None:
         import alarms
         alarms.cancel_alarm(ALARM)
         ALARM = None
+    AUTO_CONNECTION = None
     say(_connection, "SimStudy auto sync stopped")
+
+@sims4.commands.Command("simstudy.autostatus", command_type=sims4.commands.CommandType.Live)
+def autostatus(_connection=None):
+    say(_connection, "Auto {} | Ticks {} | Connection {} | Last {}".format(ALARM is not None, AUTO_TICKS, AUTO_CONNECTION is not None, AUTO_LAST_RESULT))
 
 @sims4.commands.Command("simstudy.sync", command_type=sims4.commands.CommandType.Live)
 def sync_command(_connection=None):
